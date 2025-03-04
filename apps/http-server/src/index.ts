@@ -1,6 +1,9 @@
 import express from 'express';
-import { prismaClient } from '@repo/db/db';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import { prismaClient } from '@repo/db/db';
+import { JWT_SECRET, PORT } from '@repo/config-package/config'
+import { SignUpSchema, SignInSchema } from '@repo/common-package/zodSchema'
 const app = express();
 
 app.get('/', (req, res) => {
@@ -11,6 +14,11 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/v1/signup', async (req, res) => {
+    const result = SignUpSchema.safeParse(req.body);
+    if (!result.success) {
+        res.status(400).json({ msg: 'Invalid request' });
+        return;
+    }
     const { username, password, name } = req.body;
     try {
         const user = await prismaClient.user.findFirst({
@@ -18,21 +26,25 @@ app.post('/api/v1/signup', async (req, res) => {
                 username
             }
         });
-        if (!user || user.password !== password) {
-            res.status(401).json({ msg: 'Invalid username or password' });
+        if (user) {
+            res.status(400).json({ msg: 'Username already exists!' });
             return;
         }
-        prismaClient.user.create({
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newUser = await prismaClient.user.create({
             data: {
                 username,
-                password,
+                password: hashedPassword,
                 name
             }
-        }).then(() => {
-            res.status(201).json({ msg: 'User created successfully' });
-        }).catch((error) => {
-            res.status(500).json({ msg: 'Internal server error', error: error.message });
+        })
+        const { password: _, ...excludePassword } = newUser;
+        res.status(200).json({
+            message: 'SignUp successfull',
+            user: excludePassword
         });
+        return;
 
     } catch (error) {
         res.status(500).json({ msg: 'Internal server error', error: error });
@@ -40,6 +52,11 @@ app.post('/api/v1/signup', async (req, res) => {
 
 });
 app.post('/api/v1/signin', async (req, res) => {
+    const result = SignInSchema.safeParse(req.body);
+    if (!result.success) {
+        res.status(400).json({ msg: 'Invalid request' });
+        return;
+    }
     const { username, password } = req.body;
     try {
         const user = await prismaClient.user.findFirst({
@@ -47,11 +64,23 @@ app.post('/api/v1/signin', async (req, res) => {
                 username
             }
         });
-        if (!user || user.password !== password) {
+        if (!user) {
             res.status(401).json({ msg: 'Invalid username or password' });
             return;
         }
-        const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+        const isPassowrdMatch = await bcrypt.compare(password, user.password);
+        if (!isPassowrdMatch) {
+            res.status(401).json({ msg: 'Invalid username or password' });
+            return;
+        }
+        const token = jwt.sign({
+            userId: user.id
+        },
+            JWT_SECRET as string,
+            {
+                expiresIn: '1h'
+            });
+
         res.status(200).json({
             message: 'Signin successfull',
             token: token
@@ -61,11 +90,9 @@ app.post('/api/v1/signin', async (req, res) => {
     } catch (error) {
         res.status(500).json({ msg: 'Internal server error', error: error });
     }
-
 });
 
 
-const PORT = 3000;
 app.listen(PORT, () => {
     console.log(`Listening to port ${PORT}`);
 });
