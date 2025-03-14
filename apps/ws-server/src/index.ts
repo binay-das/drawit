@@ -2,7 +2,8 @@ import { WebSocket, WebSocketServer } from "ws";
 import {WS_PORT} from '@repo/config-package/config';
 
 const wss = new WebSocketServer({
-    port: Number(WS_PORT) 
+    // port: Number(WS_PORT) 
+    port: 8080
 });
 
 interface User {
@@ -31,18 +32,18 @@ wss.on('connection', (ws, req) => {
 
     ws.on('message', async (msg) => {
         console.log(`Received message: ${msg}`);
-        const pasrsedMsg = JSON.parse(msg);
+        const parsedMsg = JSON.parse(msg.toString());
 
-        if (pasrsedMsg.type === 'join') {
+        if (parsedMsg.type === 'join') {
             const user = users.find(x => x.ws === ws);
-            user?.rooms.push(pasrsedMsg.roomId);
+            user?.rooms.push(parsedMsg.roomId);
         }
 
-        if (pasrsedMsg.type === 'leave') {
+        if (parsedMsg.type === 'leave') {
             const user = users.find(x => x.ws === ws);
             if (!user) return;
 
-            user.rooms = user.rooms.filter(x => x !== pasrsedMsg.roomId);
+            user.rooms = user.rooms.filter(x => x !== parsedMsg.roomId);
         }
     })
 });

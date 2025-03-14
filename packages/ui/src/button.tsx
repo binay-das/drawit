@@ -11,6 +11,7 @@ interface ButtonProps {
   rightIcon?: ReactNode;
   disabled?: boolean;
   onClick?: () => void;
+  className?: string
 }
 
 export const Button = ({
@@ -22,6 +23,7 @@ export const Button = ({
   leftIcon,
   rightIcon,
   disabled,
+  className,
   onClick,
 }: ButtonProps) => {
   const baseStyles =
@@ -45,7 +47,7 @@ export const Button = ({
 
   return (
     <button
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]}`}
+      className={`${baseStyles} ${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled || isLoading}
       onClick={onClick}
     >
